@@ -24,7 +24,7 @@ def generate_dual_tone(frequency1, frequency2, duration):
     t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
     signal1 = np.sin(2 * np.pi * frequency1 * t)
     signal2 = np.sin(2 * np.pi * frequency2 * t)
-    dual_tone = signal1 + signal2
+    dual_tone = (signal1 + signal2) / 2
     return dual_tone
 
 
