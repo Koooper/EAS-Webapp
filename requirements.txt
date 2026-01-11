@@ -1,0 +1,11 @@
+# Core dependencies
+numpy>=1.20.0
+flask>=2.0.0
+flask-cors>=3.0.0
+
+# TTS (optional, either one works)
+edge-tts>=6.1.0    # recommended - high quality Microsoft voices
+pydub>=0.25.0      # for audio format conversion
+
+# Testing
+pytest>=7.0.0
