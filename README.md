@@ -100,4 +100,4 @@ static/
 
 ## License
 
-MIT
+  GPL V3
