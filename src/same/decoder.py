@@ -207,7 +207,7 @@ class SAMEDecoder:
         Decode SAME messages from a WAV file.
 
         Args:
-            filename: Path to WAV file
+            filename: Path to WAV file or file-like object
 
         Returns:
             List of decoded message strings
@@ -229,12 +229,27 @@ class SAMEDecoder:
                 dtype = np.int16
                 samples = np.frombuffer(raw, dtype=dtype).astype(np.float64)
                 samples = samples / 32768
+            elif sample_width == 3:
+                # 24-bit PCM (less common)
+                samples = np.frombuffer(raw, dtype=np.uint8).astype(np.float64)
+                samples = samples.reshape(-1, 3)
+                # convert 24-bit to 32-bit integer
+                samples = (samples[:, 2].astype(np.int32) << 16) | (samples[:, 1].astype(np.int32) << 8) | samples[:, 0].astype(np.int32)
+                samples = samples.astype(np.float64) / (2**23)
+            elif sample_width == 4:
+                # 32-bit PCM (common in modern audio software)
+                dtype = np.int32
+                samples = np.frombuffer(raw, dtype=dtype).astype(np.float64)
+                samples = samples / (2**31)
             else:
                 raise ValueError(f"Unsupported sample width: {sample_width}")
 
             # convert to mono if stereo
             if n_channels == 2:
                 samples = samples.reshape(-1, 2).mean(axis=1)
+            elif n_channels > 2:
+                # mix down multi-channel to mono
+                samples = samples.reshape(-1, n_channels).mean(axis=1)
 
             # resample if needed
             if framerate != self.sample_rate:
@@ -248,17 +263,64 @@ class SAMEDecoder:
 
     def decode_bytes(self, audio_bytes: bytes) -> List[str]:
         """
-        Decode SAME messages from WAV bytes.
+        Decode SAME messages from audio bytes.
+
+        Supports WAV, Opus, MP3, and other formats by attempting decode.
+        If the file isn't a WAV, tries to convert it first.
 
         Args:
-            audio_bytes: WAV file as bytes
+            audio_bytes: Audio file as bytes
 
         Returns:
             List of decoded message strings
         """
         import io
         buffer = io.BytesIO(audio_bytes)
-        return self.decode_file(buffer)
+
+        # try to decode as WAV first
+        try:
+            return self.decode_file(buffer)
+        except (wave.Error, EOFError, RuntimeError) as e:
+            pass
+
+        # if WAV decode fails, try to convert from other formats
+        try:
+            from pydub import AudioSegment
+            buffer.seek(0)
+
+            # try to detect format and convert
+            audio = None
+            buffer.seek(0)
+            try:
+                audio = AudioSegment.from_opus(io.BytesIO(audio_bytes))
+            except Exception:
+                pass
+
+            if not audio:
+                buffer.seek(0)
+                try:
+                    audio = AudioSegment.from_mp3(io.BytesIO(audio_bytes))
+                except Exception:
+                    pass
+
+            if not audio:
+                buffer.seek(0)
+                try:
+                    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+                except Exception:
+                    pass
+
+            if audio:
+                # convert to WAV bytes
+                wav_buffer = io.BytesIO()
+                audio.export(wav_buffer, format="wav")
+                wav_buffer.seek(0)
+                return self.decode_file(wav_buffer)
+        except ImportError:
+            pass
+
+        # if all else fails, raise the original error
+        raise ValueError("Could not decode audio file. Ensure it's a valid WAV, MP3, or Opus file. Install pydub for format conversion support.")
 
     def decode_to_message(self, samples: np.ndarray) -> Optional[SAMEMessage]:
         """

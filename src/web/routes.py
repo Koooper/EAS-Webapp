@@ -13,7 +13,7 @@ from ..eas import (
     get_event_description, get_originator_description,
     get_state_name, format_location_code
 )
-from ..eas.fips import STATE_CODES
+from ..eas.fips import STATE_CODES, _load_county_data
 
 # TTS import with fallback
 try:
@@ -253,6 +253,26 @@ def get_originator_codes():
 def get_states():
     """Get all state FIPS codes."""
     return jsonify(STATE_CODES)
+
+
+@api_bp.route('/codes/counties/<state_code>', methods=['GET'])
+def get_counties(state_code):
+    """
+    Get all counties for a state.
+
+    Args:
+        state_code: 2-digit state FIPS code
+
+    Returns:
+        JSON dict of county code -> county name
+    """
+    counties = _load_county_data()
+    state_code = state_code.zfill(2)
+
+    if state_code in counties:
+        return jsonify(counties[state_code])
+    else:
+        return jsonify({'error': f'State code {state_code} not found'}), 404
 
 
 @api_bp.route('/attention-tone', methods=['GET'])

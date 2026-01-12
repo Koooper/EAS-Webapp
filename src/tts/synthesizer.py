@@ -31,8 +31,8 @@ class VoiceStyle(Enum):
     FEMALE_AUTHORITATIVE = 'en-US-JennyNeural'
     FEMALE_NEWSCAST = 'en-US-AriaNeural'
 
-    # Classic robotic (for the purists)
-    MALE_ROBOTIC = 'en-US-DavisNeural'
+    # Classic robotic (replaced en-US-DavisNeural which is no longer available)
+    MALE_ROBOTIC = 'en-US-BrianNeural'
 
     # Default
     DEFAULT = 'en-US-GuyNeural'
@@ -95,7 +95,19 @@ class TTSSynthesizer:
             Audio samples as numpy array
         """
         if self._backend == 'edge':
-            return asyncio.run(self._synthesize_edge(text))
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None:
+                # already in async context, use the running loop
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return pool.submit(asyncio.run, self._synthesize_edge(text)).result()
+            else:
+                # no running loop, safe to use asyncio.run
+                return asyncio.run(self._synthesize_edge(text))
         elif self._backend == 'pyttsx3':
             return self._synthesize_pyttsx3(text)
         else:

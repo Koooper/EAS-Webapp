@@ -10,6 +10,23 @@ Special codes:
 - 000000: United States (all states)
 """
 
+import json
+import os
+
+# Load county data from FIPS spreadsheet
+_COUNTY_DATA = None
+
+def _load_county_data():
+    global _COUNTY_DATA
+    if _COUNTY_DATA is None:
+        try:
+            county_file = os.path.join(os.path.dirname(__file__), 'fips_counties.json')
+            with open(county_file, 'r') as f:
+                _COUNTY_DATA = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            _COUNTY_DATA = {}
+    return _COUNTY_DATA
+
 # State FIPS codes per ANSI INCITS 38
 STATE_CODES = {
     '00': 'United States',
@@ -121,13 +138,22 @@ def get_state_name(state_code: str) -> str:
 
 def get_county_name(state_code: str, county_code: str) -> str:
     """
-    Get county name.
+    Get county name from FIPS database.
 
-    Note: Full county database not included - would need external data source.
-    Returns generic description for now.
+    Args:
+        state_code: 2-digit state FIPS code
+        county_code: 3-digit county FIPS code
+
+    Returns:
+        County name or generic description
     """
     if county_code == '000':
         return "Entire state"
+
+    counties = _load_county_data()
+    if state_code in counties and county_code in counties[state_code]:
+        return counties[state_code][county_code]
+
     return f"County {county_code}"
 
 
