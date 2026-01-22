@@ -1,0 +1,20 @@
+{
+  "name": "EAS Webapp",
+  "short_name": "EAS",
+  "description": "Emergency Alert System encoder/decoder with SAME protocol support",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#ff3333",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["utilities", "developer tools"],
+  "screenshots": []
+}

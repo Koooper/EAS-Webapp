@@ -15,7 +15,7 @@ Where:
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 @dataclass
@@ -59,6 +59,17 @@ class SAMEMessage:
         if len(self.callsign) > 8:
             raise ValueError(f"Callsign max 8 characters: {self.callsign}")
 
+    # more lenient regex for parsing (allows some noise)
+    HEADER_PATTERN_LENIENT = re.compile(
+        r'^ZCZC-'
+        r'([A-Z]{3})-'              # originator
+        r'([A-Z]{3})-'              # event code
+        r'([\d\-]+)'                # location codes (flexible)
+        r'\+(\d{4})-'               # purge time
+        r'(\d{7})-'                 # issue time
+        r'([A-Z0-9/\-\s]{1,15}?)-?$'  # callsign (lenient, allows spaces, up to 15)
+    )
+
     @classmethod
     def parse(cls, header: str) -> 'SAMEMessage':
         """
@@ -70,23 +81,52 @@ class SAMEMessage:
         Returns:
             SAMEMessage instance
         """
-        # normalize header
+        # normalize header - remove all internal whitespace for parsing
+        # (real decoders may introduce spaces from bit errors)
         header = header.strip().upper()
+        # remove spaces around delimiters
+        header = re.sub(r'\s*-\s*', '-', header)
+        header = re.sub(r'\s*\+\s*', '+', header)
+        # remove any remaining internal spaces
+        header = header.replace(' ', '')
         if not header.startswith('ZCZC-'):
             header = f'ZCZC-{header}'
         if not header.endswith('-'):
             header = f'{header}-'
 
+        # try strict pattern first
         match = cls.HEADER_PATTERN.match(header)
+        if not match:
+            # try lenient pattern for noisy real-world signals
+            match = cls.HEADER_PATTERN_LENIENT.match(header)
         if not match:
             raise ValueError(f"Invalid SAME header format: {header}")
 
         originator = match.group(1)
         event = match.group(2)
-        locations = match.group(3).split('-')
+        locations_raw = match.group(3).split('-')
         purge_time = match.group(4)
         issue_time = match.group(5)
-        callsign = match.group(6)
+        callsign = match.group(6).strip()  # strip whitespace from callsign
+
+        # normalize location codes - pad to 6 digits if needed
+        locations = []
+        for loc in locations_raw:
+            loc = loc.strip()
+            if loc:
+                # pad with leading zeros if too short (common decoder error)
+                loc = loc.zfill(6)
+                # truncate if too long (also possible decoder error)
+                loc = loc[:6]
+                if loc.isdigit():
+                    locations.append(loc)
+
+        if not locations:
+            raise ValueError(f"No valid location codes found in: {match.group(3)}")
+
+        # truncate callsign if too long (shouldn't happen but be safe)
+        if len(callsign) > 8:
+            callsign = callsign[:8]
 
         return cls(
             originator=originator,
@@ -127,7 +167,7 @@ class SAMEMessage:
             SAMEMessage instance
         """
         if issue_datetime is None:
-            issue_datetime = datetime.utcnow()
+            issue_datetime = datetime.now(timezone.utc)
 
         # calculate julian day and time
         julian_day = issue_datetime.timetuple().tm_yday
@@ -158,7 +198,7 @@ class SAMEMessage:
             Expiration datetime
         """
         if issue_year is None:
-            issue_year = datetime.utcnow().year
+            issue_year = datetime.now(timezone.utc).year
 
         julian_day = int(self.issue_time[:3])
         hour = int(self.issue_time[3:5])

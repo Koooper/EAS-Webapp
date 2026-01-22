@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <rect x="32" y="32" width="448" height="448" fill="none" stroke="#ff3333" stroke-width="16"/>
+
+  <!-- Warning triangle -->
+  <path d="M256 96 L416 384 L96 384 Z" fill="none" stroke="#ff3333" stroke-width="12"/>
+
+  <!-- Exclamation mark -->
+  <rect x="240" y="180" width="32" height="120" fill="#ff3333"/>
+  <rect x="240" y="320" width="32" height="32" fill="#ff3333"/>
+
+  <!-- EAS text -->
+  <text x="256" y="460" font-family="monospace" font-size="48" fill="#ffaa00" text-anchor="middle" font-weight="bold">EAS</text>
+</svg>

@@ -158,11 +158,21 @@ class SAMEDecoder:
 
             # check for end markers
             decoded = ''.join(result)
-            if decoded.endswith('-') and len(decoded) > 20:
-                # likely end of header
-                break
+
+            # EOM is simple - just NNNN
             if EOM_MARKER in decoded:
                 break
+
+            # SAME header format: ZCZC-ORG-EEE-PSSCCC[...]+TTTT-JJJHHMM-LLLLLLLL-
+            # Must have: ZCZC, +TTTT (purge time), 7-digit issue time, callsign, trailing dash
+            # A complete header has the pattern ending in: -JJJHHMM-CALLSIGN-
+            if decoded.startswith('ZCZC') and len(decoded) > 35:
+                # check if we have a valid header structure
+                # look for pattern: +DDDD-DDDDDDD-XXXXXXXX-$ where D=digit, X=callsign char
+                import re
+                header_complete = re.search(r'\+\d{4}-\d{7}-[A-Z0-9/\-]{1,8}-$', decoded)
+                if header_complete:
+                    break
 
         return ''.join(result)
 
